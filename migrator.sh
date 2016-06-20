@@ -32,14 +32,14 @@ initialize_migrator() {
 
   # set default to require docker login
   NO_LOGIN=${NO_LOGIN:-false}
-  V1_NO_LOGIN=${V1_NO_LOGIN:-false}
-  V2_NO_LOGIN=${V2_NO_LOGIN:-false}
+  R1_NO_LOGIN=${R1_NO_LOGIN:-false}
+  R2_NO_LOGIN=${R2_NO_LOGIN:-false}
 
   # if NO_LOGIN is true, set both v1 and v2 values to true
   if [ "${NO_LOGIN}" = "true" ]
   then
-    V1_NO_LOGIN="true"
-    V2_NO_LOGIN="true"
+    R1_NO_LOGIN="true"
+    R2_NO_LOGIN="true"
   fi
 
   # set default to require curl to perform ssl certificate validation
@@ -47,14 +47,14 @@ initialize_migrator() {
 
   # set default to require https
   USE_HTTP=${USE_HTTP:-false}
-  V1_USE_HTTP=${V1_USE_HTTP:-false}
-  V2_USE_HTTP=${V2_USE_HTTP:-false}
+  R1_USE_HTTP=${R1_USE_HTTP:-false}
+  R2_USE_HTTP=${R2_USE_HTTP:-false}
 
   # if USE_HTTP is true, set both v1 and v2 values to true
   if [ "${USE_HTTP}" = "true" ]
   then
-    V1_USE_HTTP="true"
-    V2_USE_HTTP="true"
+    R1_USE_HTTP="true"
+    R2_USE_HTTP="true"
   fi
 
   # set default to migrate official namespaces to 'library'
@@ -64,15 +64,15 @@ initialize_migrator() {
 # verify requirements met for script to execute properly
 verify_ready() {
   # verify v1 registry variable has been passed
-  if [ -z "${V1_REGISTRY}" ]
+  if [ -z "${R1_REGISTRY}" ]
   then
-    catch_error "${BOLD}V1_REGISTRY${CLEAR} environment variable required"
+    catch_error "${BOLD}R1_REGISTRY${CLEAR} environment variable required"
   fi
 
   # verify v2 registry variable has been passed
-  if [ -z "${V2_REGISTRY}" ]
+  if [ -z "${R2_REGISTRY}" ]
   then
-    catch_error "${BOLD}V2_REGISTRY${CLEAR} environment variable required"
+    catch_error "${BOLD}R2_REGISTRY${CLEAR} environment variable required"
   fi
 
   # verify valid error action
@@ -87,8 +87,8 @@ verify_ready() {
     catch_error "${BOLD}USER_PROMPT${CLEAR} environment variable (${USER_PROMPT}) invalid; must be either ${BOLD}true${CLEAR} or ${BOLD}false${CLEAR}"
   fi
 
-  V1_OPTIONS=""
-  V2_OPTIONS=""
+  R1_OPTIONS=""
+  R2_OPTIONS=""
 
   # verify valid insecure curl variable
   if [ "${USE_INSECURE_CURL}" != "true" ] && [ "${USE_INSECURE_CURL}" != "false" ]
@@ -98,46 +98,46 @@ verify_ready() {
     # set INSECURE_CURL environment variable to appropriate value
     if [ "${USE_INSECURE_CURL}" = "true" ]
     then
-      V1_OPTIONS="$V1_OPTIONS --insecure"
-      V2_OPTIONS="$V2_OPTIONS --insecure"
+      R1_OPTIONS="$R1_OPTIONS --insecure"
+      R2_OPTIONS="$R2_OPTIONS --insecure"
       INSECURE_CURL="--insecure"
     else
       INSECURE_CURL=""
     fi
   fi
 
-  if [ "${V1_USE_HTTP}" = "true" ]
+  if [ "${R1_USE_HTTP}" = "true" ]
     then
-     V1_PROTO="http"
+     R1_PROTO="http"
     else
-     V1_PROTO="https"
+     R1_PROTO="https"
   fi
 
-  if [ "${V2_USE_HTTP}" = "true" ]
+  if [ "${R2_USE_HTTP}" = "true" ]
     then
-     V2_PROTO="http"
+     R2_PROTO="http"
     else
-     V2_PROTO="https"
+     R2_PROTO="https"
   fi
 
   # Use client certificates where applicable
-  if [ -f "/etc/docker/certs.d/$V1_REGISTRY/client.cert" ]
+  if [ -f "/etc/docker/certs.d/$R1_REGISTRY/client.cert" ]
   then
-    V1_OPTIONS="$V1_OPTIONS --cert /etc/docker/certs.d/$V1_REGISTRY/client.cert --key /etc/docker/certs.d/$V1_REGISTRY/client.key"
+    R1_OPTIONS="$R1_OPTIONS --cert /etc/docker/certs.d/$R1_REGISTRY/client.cert --key /etc/docker/certs.d/$R1_REGISTRY/client.key"
   fi
-  if [ -f "/etc/docker/certs.d/$V2_REGISTRY/client.cert" ]
+  if [ -f "/etc/docker/certs.d/$R2_REGISTRY/client.cert" ]
   then
-    V2_OPTIONS="$V2_OPTIONS --cert /etc/docker/certs.d/$V2_REGISTRY/client.cert --key /etc/docker/certs.d/$V2_REGISTRY/client.key"
+    R2_OPTIONS="$R2_OPTIONS --cert /etc/docker/certs.d/$R2_REGISTRY/client.cert --key /etc/docker/certs.d/$R2_REGISTRY/client.key"
   fi
 
   # Use custom CA certificates where applicable
-  if [ -f "/etc/docker/certs.d/$V1_REGISTRY/ca.crt" ]
+  if [ -f "/etc/docker/certs.d/$R1_REGISTRY/ca.crt" ]
   then
-    V1_OPTIONS="$V1_OPTIONS --cacert /etc/docker/certs.d/$V1_REGISTRY/ca.crt"
+    R1_OPTIONS="$R1_OPTIONS --cacert /etc/docker/certs.d/$R1_REGISTRY/ca.crt"
   fi
-  if [ -f "/etc/docker/certs.d/$V2_REGISTRY/ca.crt" ]
+  if [ -f "/etc/docker/certs.d/$R2_REGISTRY/ca.crt" ]
   then
-    V2_OPTIONS="$V2_OPTIONS --cacert /etc/docker/certs.d/$V2_REGISTRY/ca.crt"
+    R2_OPTIONS="$R2_OPTIONS --cacert /etc/docker/certs.d/$R2_REGISTRY/ca.crt"
   fi
 
   # verify docker daemon is accessible
@@ -147,7 +147,7 @@ verify_ready() {
   fi
 
   # verify if v2 repository destination is AWS ECR
-  if [[ ${V2_REGISTRY} =~ .*ecr.*amazonaws.com$ ]]
+  if [[ ${R2_REGISTRY} =~ .*ecr.*amazonaws.com$ ]]
   then
     if [ -f "/root/.aws/credentials" ] || ([ -n "${AWS_ACCESS_KEY_ID}" ] && [ -n "${AWS_SECRET_ACCESS_KEY}" ])
     then
@@ -155,10 +155,10 @@ verify_ready() {
       read AWS_REGION
       AWS_ECR="true"
       AWS_LOGIN=$(aws ecr get-login --region ${AWS_REGION})
-      V2_USERNAME=$(echo ${AWS_LOGIN} | awk -F ' ' '{print $4}')
-      V2_PASSWORD=$(echo ${AWS_LOGIN} | awk -F ' ' '{print $6}')
-      V2_REGISTRY=$(echo ${AWS_LOGIN} | awk -F 'https://' '{print $2}')
-      V2_EMAIL="none"
+      R2_USERNAME=$(echo ${AWS_LOGIN} | awk -F ' ' '{print $4}')
+      R2_PASSWORD=$(echo ${AWS_LOGIN} | awk -F ' ' '{print $6}')
+      R2_REGISTRY=$(echo ${AWS_LOGIN} | awk -F 'https://' '{print $2}')
+      R2_EMAIL="none"
     else
       catch_error "${BOLD}AWS${CLEAR} credentials required"
     fi
@@ -327,7 +327,7 @@ decode_auth() {
 
 # query the source registry for a list of all images
 query_source_images() {
-  echo -e "\n${INFO} Getting a list of images from ${V1_REGISTRY}"
+  echo -e "\n${INFO} Getting a list of images from ${R1_REGISTRY}"
   # check to see if migrating from docker hub or a v1 registry
   if [ "${DOCKER_HUB}" = "true" ]
   then
@@ -354,13 +354,13 @@ query_source_images() {
     fi
 
     # check to see if a filter pattern was provided
-    if [ -z "${V1_REPO_FILTER}" ]
+    if [ -z "${R1_REPO_FILTER}" ]
     then
       # no filter pattern was defined, get all repos
       REPO_LIST=$(curl ${INSECURE_CURL} -sf -H "Authorization: JWT ${TOKEN}" https://hub.docker.com/v2/repositories/${NAMESPACE}/?page_size=100000 | jq -r '.results|.[]|.name') || catch_error "curl => API failure"
     else
       # filter pattern defined, use grep to match repos w/regex capabilites
-      REPO_LIST=$(curl ${INSECURE_CURL} -sf -H "Authorization: JWT ${TOKEN}" https://hub.docker.com/v2/repositories/${NAMESPACE}/?page_size=100000 | jq -r '.results|.[]|.name' | grep ${V1_REPO_FILTER} || true) || catch_error "curl => API failure"
+      REPO_LIST=$(curl ${INSECURE_CURL} -sf -H "Authorization: JWT ${TOKEN}" https://hub.docker.com/v2/repositories/${NAMESPACE}/?page_size=100000 | jq -r '.results|.[]|.name' | grep ${R1_REPO_FILTER} || true) || catch_error "curl => API failure"
     fi
 
     # build a list of all images & tags
@@ -385,20 +385,20 @@ query_source_images() {
     done
   else
     # check to see if a filter pattern was provided
-    if [ -z "${V1_REPO_FILTER}" ]
+    if [ -z "${R1_REPO_FILTER}" ]
     then
       # no filter pattern was defined, get all repos
-      REPO_LIST=$(curl ${V1_OPTIONS} -sf ${V1_PROTO}://${AUTH_CREDS}@${V1_REGISTRY}/v2/_catalog | jq -r '.repositories | .[]') || catch_error "curl => API failure"
+      REPO_LIST=$(curl ${R1_OPTIONS} -sf ${R1_PROTO}://${AUTH_CREDS}@${R1_REGISTRY}/v2/_catalog | jq -r '.repositories | .[]') || catch_error "curl => API failure"
     else
       # filter pattern defined, use grep to match repos w/regex capabilites
-      REPO_LIST=$(curl ${V1_OPTIONS} -sf ${V1_PROTO}://${AUTH_CREDS}@${V1_REGISTRY}/v2/_catalog | jq -r '.repositories | .[]' | grep ${V1_REPO_FILTER} || true) || catch_error "curl => API failure"
+      REPO_LIST=$(curl ${R1_OPTIONS} -sf ${R1_PROTO}://${AUTH_CREDS}@${R1_REGISTRY}/v2/_catalog | jq -r '.repositories | .[]' | grep ${R1_REPO_FILTER} || true) || catch_error "curl => API failure"
     fi
 
     # loop through all repos in v1 registry to get tags for each
     for i in ${REPO_LIST}
     do
       # get list of tags for image i
-      IMAGE_TAGS=$(curl ${V1_OPTIONS} -sf ${V1_PROTO}://${AUTH_CREDS}@${V1_REGISTRY}/v2/${i}/tags/list | jq -r '.tags | .[]') || catch_error "curl => API failure"
+      IMAGE_TAGS=$(curl ${R1_OPTIONS} -sf ${R1_PROTO}://${AUTH_CREDS}@${R1_REGISTRY}/v2/${i}/tags/list | jq -r '.tags | .[]') || catch_error "curl => API failure"
 
       # loop through tags to create list of full image names w/tags
       for j in ${IMAGE_TAGS}
@@ -415,19 +415,19 @@ query_source_images() {
       done
     done
   fi
-  echo -e "${OK} Successfully retrieved list of Docker images from ${V1_REGISTRY}"
+  echo -e "${OK} Successfully retrieved list of Docker images from ${R1_REGISTRY}"
 }
 
 # show list of images from docker hub or the v1 registry
 show_source_image_list() {
-  echo -e "\n${INFO} Full list of images from ${V1_REGISTRY} to be migrated:"
+  echo -e "\n${INFO} Full list of images from ${R1_REGISTRY} to be migrated:"
 
   # output list with v1 registry name prefix added
   for i in ${FULL_IMAGE_LIST}
   do
-    echo ${V1_REGISTRY}/${i}
+    echo ${R1_REGISTRY}/${i}
   done
-  echo -e "${OK} End full list of images from ${V1_REGISTRY}"
+  echo -e "${OK} End full list of images from ${R1_REGISTRY}"
 
   # check to see if user should be prompted
   if ${USER_PROMPT}
@@ -466,22 +466,22 @@ retag_image() {
   DESTINATION_IMAGE="${2}"
 
   # retag image
-  (docker tag -f ${SOURCE_IMAGE} ${DESTINATION_IMAGE} && echo -e "${OK} ${V1_REGISTRY}/${i} > ${V2_REGISTRY}/${i}") || catch_retag_error "${SOURCE_IMAGE}" "${DESTINATION_IMAGE}"
+  (docker tag -f ${SOURCE_IMAGE} ${DESTINATION_IMAGE} && echo -e "${OK} ${R1_REGISTRY}/${i} > ${R2_REGISTRY}/${i}") || catch_retag_error "${SOURCE_IMAGE}" "${DESTINATION_IMAGE}"
 }
 
 # pull all images to local system
 pull_images_from_source() {
-  echo -e "\n${INFO} Pulling all images from ${V1_REGISTRY} to your local system"
+  echo -e "\n${INFO} Pulling all images from ${R1_REGISTRY} to your local system"
   for i in ${FULL_IMAGE_LIST}
   do
-    push_pull_image "pull" "${V1_REGISTRY}/${i}"
+    push_pull_image "pull" "${R1_REGISTRY}/${i}"
   done
-  echo -e "${OK} Successully pulled all images from ${V1_REGISTRY} to your local system"
+  echo -e "${OK} Successully pulled all images from ${R1_REGISTRY} to your local system"
 }
 
 # check to see if docker hub/v1 and v2 registry share the same DNS name
 check_registry_swap_or_retag() {
-  if [ "${V1_REGISTRY}" = "${V2_REGISTRY}" ]
+  if [ "${R1_REGISTRY}" = "${R2_REGISTRY}" ]
   then
     # retagging not needed; re-using same DNS name for v2 registry
     echo -e "${OK} Skipping re-tagging; same URL used for v1 and v2\n"
@@ -490,25 +490,25 @@ check_registry_swap_or_retag() {
     read -rsp $'Make the necessary changes to switch your v1 and v2 registries and then press any key to continue\n' -n1 key
   else
     # re-tag images; different DNS name used for v2 registry
-    echo -e "\n${INFO} Retagging all images from '${V1_REGISTRY}' to '${V2_REGISTRY}'"
+    echo -e "\n${INFO} Retagging all images from '${R1_REGISTRY}' to '${R2_REGISTRY}'"
     for i in ${FULL_IMAGE_LIST}
     do
-      retag_image "${V1_REGISTRY}/${i}" "${V2_REGISTRY}/${i}"
+      retag_image "${R1_REGISTRY}/${i}" "${R2_REGISTRY}/${i}"
     done
     echo -e "${OK} Successfully retagged all images"
   fi
 }
 
-# verify V2_REGISTRY is reporting as a v2 registry
+# verify R2_REGISTRY is reporting as a v2 registry
 verify_v2_ready() {
-  V2_READY="false"
-  while [ "${V2_READY}" = "false" ]
+  R2_READY="false"
+  while [ "${R2_READY}" = "false" ]
   do
-    # check to see if V2_REGISTRY is returning the expected header (see https://docs.docker.com/registry/spec/api/#api-version-check:00e71df22262087fd8ad820708997657)
-    if $(curl ${V2_OPTIONS} -Is ${V2_PROTO}://${V2_REGISTRY}/v2/ | grep ^'Docker-Distribution-Api-Version: registry/2.0' > /dev/null 2>&1)
+    # check to see if R2_REGISTRY is returning the expected header (see https://docs.docker.com/registry/spec/api/#api-version-check:00e71df22262087fd8ad820708997657)
+    if $(curl ${R2_OPTIONS} -Is ${R2_PROTO}://${R2_REGISTRY}/v2/ | grep ^'Docker-Distribution-Api-Version: registry/2.0' > /dev/null 2>&1)
     then
       # api version indicates v2; sets value to exit loop
-      V2_READY="true"
+      R2_READY="true"
     else
       # check to see if error action set to abort to automatically exit when v2 not available
       if [ "${ERROR_ACTION}" = "abort" ]
@@ -517,14 +517,14 @@ verify_v2_ready() {
         catch_error "Failed verify v2 registry available; aborting"
       else
         # api version either not returned or not showing proper version; will continue in loop
-        echo -e "\n${ERROR} v2 registry (${V2_REGISTRY}) is not available"
+        echo -e "\n${ERROR} v2 registry (${R2_REGISTRY}) is not available"
         echo -en "${NOTICE} "
         read -rsp $'Verify v2 registry is functioning as expected; press any key to continue to retry [ctrl+c to abort]\n' -n1 key
       fi
     fi
   done
   # v2 registry verified as available
-  echo -e "\n${OK} Verified v2 registry (${V2_REGISTRY}) is available"
+  echo -e "\n${OK} Verified v2 registry (${R2_REGISTRY}) is available"
 }
 
 # push images to v2 registry
@@ -538,12 +538,12 @@ push_images_to_v2() {
     done
   fi
 
-  echo -e "\n${INFO} Pushing all images to ${V2_REGISTRY}"
+  echo -e "\n${INFO} Pushing all images to ${R2_REGISTRY}"
   for i in ${FULL_IMAGE_LIST}
   do
-    push_pull_image "push" "${V2_REGISTRY}/${i}"
+    push_pull_image "push" "${R2_REGISTRY}/${i}"
   done
-  echo -e "${OK} Successfully pushed all images to ${V2_REGISTRY}"
+  echo -e "${OK} Successfully pushed all images to ${R2_REGISTRY}"
 }
 
 # cleanup images from local docker engine
@@ -552,19 +552,19 @@ cleanup_local_engine() {
 
   # check to see if migrating from docker hub
   # see if re-tagged images exist and remove accordingly
-  if [ "${V1_REGISTRY}" = "${V2_REGISTRY}" ]
+  if [ "${R1_REGISTRY}" = "${R2_REGISTRY}" ]
   then
     for i in ${FULL_IMAGE_LIST}
     do
       # remove docker image/tags; allow failures here (in case image is actually in use)
-      docker rmi ${V1_REGISTRY}/${i} || true
+      docker rmi ${R1_REGISTRY}/${i} || true
     done
   else
     for i in ${FULL_IMAGE_LIST}
     do
       # remove docker image/tags; allow failures here (in case image is actually in use)
-      docker rmi ${V1_REGISTRY}/${i} || true
-      docker rmi ${V2_REGISTRY}/${i} || true
+      docker rmi ${R1_REGISTRY}/${i} || true
+      docker rmi ${R2_REGISTRY}/${i} || true
     done
   fi
   echo -e "${OK} Successfully cleaned up images from local Docker engine"
@@ -585,18 +585,18 @@ main() {
   initialize_migrator
   verify_ready
   # check to see if NO_LOGIN is not true
-  if [ "${V1_NO_LOGIN}" != "true" ]; then
-    docker_login ${V1_REGISTRY} ${V1_USERNAME} ${V1_PASSWORD} ${V1_EMAIL}
-    decode_auth ${V1_REGISTRY}
+  if [ "${R1_NO_LOGIN}" != "true" ]; then
+    docker_login ${R1_REGISTRY} ${R1_USERNAME} ${R1_PASSWORD} ${R1_EMAIL}
+    decode_auth ${R1_REGISTRY}
   fi
   query_source_images
   show_source_image_list
   pull_images_from_source
   check_registry_swap_or_retag
   verify_v2_ready
-  # check to see if V2_NO_LOGIN is true
-  if [ "${V2_NO_LOGIN}" != "true" ]; then
-    docker_login ${V2_REGISTRY} ${V2_USERNAME} ${V2_PASSWORD} ${V2_EMAIL}
+  # check to see if R2_NO_LOGIN is true
+  if [ "${R2_NO_LOGIN}" != "true" ]; then
+    docker_login ${R2_REGISTRY} ${R2_USERNAME} ${R2_PASSWORD} ${R2_EMAIL}
   fi
   push_images_to_v2
   cleanup_local_engine

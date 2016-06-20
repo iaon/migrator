@@ -10,8 +10,8 @@ https://hub.docker.com/r/docker/migrator/
 ```
 docker run -it \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -e V1_REGISTRY=v1.registry.fqdn \
-    -e V2_REGISTRY=v2.registry.fqdn \
+    -e R1_REGISTRY=v1.registry.fqdn \
+    -e R2_REGISTRY=v2.registry.fqdn \
     docker/migrator
 ```
 
@@ -20,9 +20,9 @@ The following environment variables can be set:
 
 #### Required
 
-  * `V1_REGISTRY` - DNS hostname of your v1 registry or Docker Hub (Do not include `https://`)
+  * `R1_REGISTRY` - DNS hostname of your v1 registry or Docker Hub (Do not include `https://`)
     * If migrating images from Docker Hub, use `docker.io`
-  * `V2_REGISTRY` - DNS hostname of your v2 registry (Do not include `https://`)
+  * `R2_REGISTRY` - DNS hostname of your v2 registry (Do not include `https://`)
 
 #### Optional
 
@@ -39,10 +39,10 @@ The following environment variables can be set:
   * `NO_LOGIN`
     * `true` - Skips `docker login` for both the v1 and v2 registries
     * `false` - (_Default_) Prompts user to login to the v1 and v2 registries
-  * `V1_NO_LOGIN`
+  * `R1_NO_LOGIN`
     * `true` - Skips `docker login` for the v1 registry
     * `false` - (_Default_) Prompts user to login to the v1 registry
-  * `V2_NO_LOGIN`
+  * `R2_NO_LOGIN`
     * `true` - Skips `docker login` for the v2 registry
     * `false` - (_Default_) Prompts user to login to the v2 registry
   * `USE_INSECURE_CURL`
@@ -51,35 +51,35 @@ The following environment variables can be set:
   * `USE_HTTP`
     * `true` - Allows curl to connect to both the v1 and v2 registries over HTTP
     * `false` - (_Default_) Requires curl to connect to v1 and v2 registries over HTTPS
-  * `V1_USE_HTTP`
+  * `R1_USE_HTTP`
     * `true` - Allows curl to connect to v1 registry running over HTTP
     * `false` - (_Default_) Requires curl to connect to v1 registry over HTTPS
-  * `V2_USE_HTTP`
+  * `R2_USE_HTTP`
     * `true` - Allows curl to connect to v2 registry running over HTTP
     * `false` - (_Default_) Requires curl to connect to v2 registry over HTTPS
   * `DOCKER_HUB_ORG` - Docker Hub organization name to migrate images from
     * Defaults to the username used to login to Docker Hub if not provided
-  * `V1_REPO_FILTER` - Search filter to limit the scope of the repositories to migrate (uses [grep basic regular expression interpretation](http://www.gnu.org/software/grep/manual/html_node/Basic-vs-Extended.html))
+  * `R1_REPO_FILTER` - Search filter to limit the scope of the repositories to migrate (uses [grep basic regular expression interpretation](http://www.gnu.org/software/grep/manual/html_node/Basic-vs-Extended.html))
     * *Note*: This only filters the repositories returned from the source registry search API, not the individual tags
   * `LIBRARY_NAMESPACE` - Sets option to migrate official namespaces (images where there is no namespace provided) to the `library/` namespace (Note: must be set to `true` for DTR 1.4 or greater)
     * `true` - (_Default_) Adds `library` namespace to image names
     * `false` - Keeps images as they are without a namespace
   * Custom CA certificate and Client certificate support - for custom CA and/or client certificate support to your v1 and/or v2 registries, you should utilize a volume to share them into the container by adding the following to your run command:
     * `-v /etc/docker/certs.d:/etc/docker/certs.d:ro`
-  * `V1_USERNAME` - Username used for `docker login` to the v1 registry
-  * `V1_PASSWORD` - Password used for `docker login` to the v1 registry
-  * `V1_EMAIL` - Email used for `docker login` to the v1 registry
-  * `V2_USERNAME` - Username used for `docker login` to the v2 registry
-  * `V2_PASSWORD` - Password used for `docker login` to the v2 registry
-  * `V2_EMAIL` - Email used for `docker login` to the v2 registry
+  * `R1_USERNAME` - Username used for `docker login` to the v1 registry
+  * `R1_PASSWORD` - Password used for `docker login` to the v1 registry
+  * `R1_EMAIL` - Email used for `docker login` to the v1 registry
+  * `R2_USERNAME` - Username used for `docker login` to the v2 registry
+  * `R2_PASSWORD` - Password used for `docker login` to the v2 registry
+  * `R2_EMAIL` - Email used for `docker login` to the v2 registry
 
-*Note*: You must use all three variables (`V1_USERNAME`, `V1_PASSWORD`, and `V1_EMAIL` or `V2_USERNAME`, `V2_PASSWORD`, and `V2_EMAIL`) for the given automated `docker login` to function properly.  Omitting one will prompt the user for input of all three.
+*Note*: You must use all three variables (`R1_USERNAME`, `R1_PASSWORD`, and `R1_EMAIL` or `R2_USERNAME`, `R2_PASSWORD`, and `R2_EMAIL`) for the given automated `docker login` to function properly.  Omitting one will prompt the user for input of all three.
 
 ## Prerequisites
 This migration tool assumes the following:
 
   * You have a v1 registry (or Docker Hub) and you are planning on migrating to a v2 registry
-  * The new v2 registry can either be running using a different DNS name or the same DNS name as the v1 registry - both scenarios work in this case.  If you are utilizing the same DNS name for your new v2 registry, set both `V1_REGISTRY` and `V2_REGISTRY` to the same value.
+  * The new v2 registry can either be running using a different DNS name or the same DNS name as the v1 registry - both scenarios work in this case.  If you are utilizing the same DNS name for your new v2 registry, set both `R1_REGISTRY` and `R2_REGISTRY` to the same value.
 
 It is suggested that you run this container on a Docker engine that is located near your registry as you will need to pull down every image from your v1 registry (or Docker Hub) and push them to the v2 registry to complete the migration.  This also means that you will need enough disk space on your local Docker engine to temporarily store all of the images.
 
@@ -89,16 +89,16 @@ If you're interested in migrating to an Amazon EC2 Container Registry (ECR) you 
 docker run -it \
     -v ~/.aws:/root/.aws:ro \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -e V1_REGISTRY=v1.registry.fqdn \
-    -e V2_REGISTRY=v2.registry.fqdn \
+    -e R1_REGISTRY=v1.registry.fqdn \
+    -e R2_REGISTRY=v2.registry.fqdn \
 docker/migrator
 
 docker run -it \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -e AWS_ACCESS_KEY_ID=<key> \
     -e AWS_SECRET_ACCESS_KEY=<secret> \
-    -e V1_REGISTRY=v1.registry.fqdn \
-    -e V2_REGISTRY=v2.registry.fqdn \
+    -e R1_REGISTRY=v1.registry.fqdn \
+    -e R2_REGISTRY=v2.registry.fqdn \
 docker/migrator
 ```
 
